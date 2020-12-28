@@ -33,6 +33,7 @@ SOFTWARE.
 #define    LED_RED     PB2
 
 static volatile uint16_t g_tick_counter = 0;                //Counts ticks
+static volatile uint8_t g_adc_reading = 0;					// read the adc result in ISR
 
 
 /* Setting clock to 9.6MHz using CLKPR reg. */
@@ -47,18 +48,22 @@ void soft_pwm_RGB(int R_on_time, int G_on_time, int B_on_time);
 void setup_GPIO();
 /* Set gpio values based on color value and current bit pos */
 void out_rgb(uint8_t r, uint8_t g, uint8_t b, uint8_t bit_pos_val);
-
+/* configure ADC */
+void setup_adc();
+/* get the adc result which is stored during the interrupt (in a ISR) */
+uint8_t get_adc_reading();
 
 
 int main(void)
 {
     set_clk_9_6MHz();
     setup_GPIO();
+	setup_adc();
     set_timer_25us();
 
 	// Wait before changing the color
-	uint16_t color_change_wait_ticks = 256;
-	// Used for scanning bits
+	uint16_t color_change_wait_ticks = 10;
+	// Used for scanning bitsvoid
 	uint8_t bit_pos_val = 0x80;
 	// main colour value
     uint8_t r = 0, g = 0, b = 0;
@@ -85,7 +90,9 @@ int main(void)
 				// wait here and do calculation for getting the next color in the color cycle
 				
 				// change color after certain time (to slow down the color ramp)
-				if (get_tick_25us() - color_change_start_tick >= color_change_wait_ticks)
+				// also, satisfy only if color_change_wait_ticks is more than 10. otherwise the colour change will be too fast
+				if (get_tick_25us() - color_change_start_tick >= color_change_wait_ticks &&
+					color_change_wait_ticks >= 10)
 				{
 					if (red_temp == 255 && blue_temp == 0 && green_temp < 255)
 						green_temp++;
@@ -111,10 +118,17 @@ int main(void)
 		r = red_temp;
 		g = green_temp;
 		b = blue_temp;
-		
+		color_change_wait_ticks = get_adc_reading() * 8;	//modify the wait time based on potentiometer
     }
     
     return 0;
+}
+
+ISR(ADC_vect)
+{
+	cli();
+	g_adc_reading = ADCH; // not needed ADCL
+	sei();
 }
 
 ISR(TIM0_COMPA_vect)
@@ -157,7 +171,7 @@ void set_timer_25us()
     sei();                             //enable interrupt
 }
 
-/* get current tick value. updated every 25us*/
+/* atomically get current tick value. updated every 25us*/
 uint16_t get_tick_25us()
 {
     uint16_t ret_us;
@@ -165,6 +179,16 @@ uint16_t get_tick_25us()
     ret_us = g_tick_counter;                   //read g_tick_counter and store to ret
     sei();                              //enable interrupt after reading is done
     return ret_us;
+}
+
+/* atomically get the adc reading */
+uint8_t get_adc_reading()
+{
+	uint8_t adc_res;
+	cli();
+	adc_res = g_adc_reading;
+	sei();
+	return adc_res;
 }
 
 /* set GPIO values */
@@ -188,4 +212,21 @@ void setup_GPIO()
 {
     PORTB &= ~(1 << LED_RED) & ~(1 << LED_GREEN) & ~(1 << LED_BLUE);
     DDRB |= (1 << LED_RED) | (1 << LED_GREEN) | (1 << LED_BLUE);
+}
+
+/* configure ADC  */
+void setup_adc()
+{
+	ADMUX |= 0x02; //mux1 = 1, mux0 = 0. ADC2 is selected
+	ADMUX |= (1 << ADLAR); //left adjust the data cause we're happy with the 8bit in ADCH only
+	
+	
+	ADCSRA |= (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0); //prescaler = 128 
+	ADCSRA |= (1 << ADIE); // enable interrupt
+	ADCSRA |= (1 << ADATE); //ADC auto trigger enable, free running mode
+	ADCSRA |= (1 << ADEN); //enable ADC
+	DIDR0 |= (1 << ADC2D); //disable digital input on that pins
+	
+	ADCSRA |= (1 << ADSC); //start the conversion in free running mode
+	sei();
 }
