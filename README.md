@@ -1,6 +1,6 @@
  ## TinyColor - ATTiny13 RGB LED control using Binary Code Modulation
 
-### Binary COde Modulation (BCM)
+### Binary Code Modulation (BCM)
 BCM is a less known technique for modulating the output to control a frequency insensitive device such as LED. It can be used as a replacement of PWM. 
 ATtiny13 MCU has only 2 pwm channels but an RGB LED has 3 pins. So, to chnage color, PWM is not an option here. Here BCM comes to my rescue. This is how BCM works:
 
@@ -15,16 +15,16 @@ Let's see the graph for a 4-bit number, say 5.
 To represent 5, the duty cycle should be = 5/(2^4 - 1) * 100% = 33.33%.
 ```
 
-level     0     1  0 1
-          |     |  | |
-          v     v  v v
-      +       +---+ +-+
-      |       |   | | |
-      |       |   | | |
-      +-------+   +-+ +
-          ^     ^  ^ ^
-          |     |  | |
-ticks     8     4  2 1
+level     0      1    0 1
+          |      |    | |
+          v      v    v v
+      +        +----+  +-+
+      |        |    |  | |
+      |        |    |  | |
+      +--------+    +--+ +
+          ^      ^  ^   ^
+          |      |  |   |
+ticks     8      4  2   1
 
 So, here duty cycle = (on time / total time) * 100 %
                     = {(4 + 1) ticks / (8 + 4 + 2 + 1) ticks} * 100 %
