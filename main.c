@@ -32,7 +32,7 @@ SOFTWARE.
 #define    LED_BLUE    PB0
 #define    LED_RED     PB2
 
-static volatile uint16_t g_tick_counter = 0;                //Counts ticks
+static volatile uint16_t g_tick_counter = 0;				//Counts ticks
 static volatile uint8_t g_adc_reading = 0;					// read the adc result in ISR
 
 
@@ -42,10 +42,8 @@ void set_clk_9_6MHz();
 void set_timer_25us();
 /* Read 16-bit g_tick_counter atomically */
 uint16_t get_tick_25us();
-/* Software PWM control. Pass R,G,B on time. Max 100us */
-void soft_pwm_RGB(int R_on_time, int G_on_time, int B_on_time);
 /* Set up GPIOs */
-void setup_GPIO();
+void setup_gpio();
 /* Set gpio values based on color value and current bit pos */
 void out_rgb(uint8_t r, uint8_t g, uint8_t b, uint8_t bit_pos_val);
 /* configure ADC */
@@ -56,26 +54,26 @@ uint8_t get_adc_reading();
 
 int main(void)
 {
-    set_clk_9_6MHz();
-    setup_GPIO();
+	set_clk_9_6MHz();
+	setup_gpio();
 	setup_adc();
-    set_timer_25us();
+	set_timer_25us();
 
 	// Wait before changing the color
 	uint16_t color_change_wait_ticks = 10;
 	// Used for scanning bitsvoid
 	uint8_t bit_pos_val = 0x80;
 	// main colour value
-    uint8_t r = 0, g = 0, b = 0;
+	uint8_t r = 0, g = 0, b = 0;
 	// temporary colour value for calculation
 	uint8_t red_temp = 255, green_temp = 0, blue_temp = 0;
-	
+
 	uint16_t bcm_encode_start_tick = 0;
 	uint16_t color_change_start_tick = 0;
 	
 	// main loop
-    while(1)
-    {
+	while(1)
+	{
 		// loop until all 8 bits are modulated
 		// each counter increment  = 25us. so, total loop time = 2^8 * 25 = 6375us
 		while (bit_pos_val >= 1)
@@ -83,7 +81,7 @@ int main(void)
 			// set gpios based on current bit's weighted value and color value'
 			out_rgb(r, g, b, bit_pos_val);
 			bcm_encode_start_tick = get_tick_25us();
-			// note: bit_pos_val also acts as wait time
+			// note: bit_pos_val also acts as pulse width
 			// now wait until the required time is passed. 
 			while (get_tick_25us() - bcm_encode_start_tick < bit_pos_val)
 			{
@@ -119,9 +117,9 @@ int main(void)
 		g = green_temp;
 		b = blue_temp;
 		color_change_wait_ticks = get_adc_reading() * 8;	//modify the wait time based on potentiometer
-    }
-    
-    return 0;
+	}
+	
+	return 0;
 }
 
 ISR(ADC_vect)
@@ -133,28 +131,28 @@ ISR(ADC_vect)
 
 ISR(TIM0_COMPA_vect)
 {
-    cli();                              //Disable interrupt for atomic writing
-    g_tick_counter++;                   //increment g_tick_counter
-    TCNT0 = 0;                          //Reset timer counter to 0
-    sei();
+	cli();                              //Disable interrupt for atomic writing
+	g_tick_counter++;                   //increment g_tick_counter
+	TCNT0 = 0;                          //Reset timer counter to 0
+	sei();
 }
 
 void set_clk_9_6MHz()
 {
-    /* Clear interrupt */
-    cli();
-    
-    /* 1000000
-    *Write the Clock Prescaler Change Enable (CLKPCE) bit (8th) to one and all other bits in
-    *CLKPR to zero.
-    */
-    CLKPR = 0x80; 
+	/* Clear interrupt */
+	cli();
 
-    /*
-    *Within four cycles, write the desired value to CLKPS while writing a zero to CLKPCE.
-    *Here, CLKPS[3:0] are zero to have prescaler 1
-    */
-    CLKPR = 0x00;
+	/* 1000000
+	*Write the Clock Prescaler Change Enable (CLKPCE) bit (8th) to one and all other bits in
+	*CLKPR to zero.
+	*/
+	CLKPR = 0x80; 
+
+	/*
+	*Within four cycles, write the desired value to CLKPS while writing a zero to CLKPCE.
+	*Here, CLKPS[3:0] are zero to have prescaler 1
+	*/
+	CLKPR = 0x00;
 }
 
 
@@ -162,23 +160,23 @@ void set_clk_9_6MHz()
 void set_timer_25us()
 {
 	/* It takes 25us to count up to 239 at 9.6MHz  (timer_count = (required delay / clk period) - 1)*/ 
-    OCR0A = 239;//for 1us, use 9 (gives 1.04us)
-    /* Interrupt on compare match */
-    TIMSK0 |= (1 <<  OCIE0A);
-    TCNT0 = 0x00;                      //Initialize counter
-    /* Set prescaler to Fclk/1 and starts timer0*/
-    TCCR0B |= (1 << CS00);
-    sei();                             //enable interrupt
+	OCR0A = 239;//for 1us, use 9 (gives 1.04us)
+	/* Interrupt on compare match */
+	TIMSK0 |= (1 <<  OCIE0A);
+	TCNT0 = 0x00;                      //Initialize counter
+	/* Set prescaler to Fclk/1 and starts timer0*/
+	TCCR0B |= (1 << CS00);
+	sei();                             //enable interrupt
 }
 
 /* atomically get current tick value. updated every 25us*/
 uint16_t get_tick_25us()
 {
-    uint16_t ret_us;
-    cli();                              //disable interrupt for atomic reading
-    ret_us = g_tick_counter;                   //read g_tick_counter and store to ret
-    sei();                              //enable interrupt after reading is done
-    return ret_us;
+	uint16_t ret_us;
+	cli();                              //disable interrupt for atomic reading
+	ret_us = g_tick_counter;                   //read g_tick_counter and store to ret
+	sei();                              //enable interrupt after reading is done
+	return ret_us;
 }
 
 /* atomically get the adc reading */
@@ -208,10 +206,10 @@ void out_rgb(uint8_t r, uint8_t g, uint8_t b, uint8_t bit_pos_val)
 
 
 /* configure gpio */
-void setup_GPIO()
+void setup_gpio()
 {
-    PORTB &= ~(1 << LED_RED) & ~(1 << LED_GREEN) & ~(1 << LED_BLUE);
-    DDRB |= (1 << LED_RED) | (1 << LED_GREEN) | (1 << LED_BLUE);
+	PORTB &= ~(1 << LED_RED) & ~(1 << LED_GREEN) & ~(1 << LED_BLUE);
+	DDRB |= (1 << LED_RED) | (1 << LED_GREEN) | (1 << LED_BLUE);
 }
 
 /* configure ADC  */
